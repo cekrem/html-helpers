@@ -1,9 +1,11 @@
-module HtmlHelpers exposing (contentList, lazyContentList, wrapToSingleNode, nothing, maybeContentList)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing)
 
-{-| Convenient helper functions for working with
-[`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
+{-| Helper functions for conditionally rendering HTML elements.
 
-@docs contentList, lazyContentList, wrapToSingleNode, nothing, maybeContentList
+These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
+in a more declarative way.
+
+@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing
 
 -}
 
@@ -11,35 +13,46 @@ import Html exposing (Html)
 import Html.Attributes exposing (style)
 
 
-{-| This function makes it easier to conditionally render Html.nodes.
-The most obvious usecase is similar to that of Attributes.classList,
-but for content rather than classes. Each entry in the list will be added
-and removed depending on the boolean value it is paired with.
+{-| Conditionally render HTML nodes based on boolean flags.
 
-For example, maybe we want to render a few animals:
+This function is conceptually similar to `Attributes.classList`, but for
+content nodes rather than CSS classes. Each entry in the list will be included
+in the output only if its associated boolean value is `True`.
+
+For example:
 
     viewAnimals : Animal -> Animal -> Animal -> Html msg
     viewAnimals dog cat mouse =
         Html.section [ Attributes.id "animals" ] <|
             contentList
-                [ ( Html.text dog.name, dog.visible ) -- dog will be rendered if dog.visible is True
-                , ( Html.text cat.name, cat.visible ) -- etc
-                , ( Html.text mouse.name, mouse.visible ) -- etc
+                [ ( Html.text dog.name, dog.visible ) -- included only if dog.visible is True
+                , ( Html.text cat.name, cat.visible ) -- included only if cat.visible is True
+                , ( Html.text mouse.name, mouse.visible ) -- included only if mouse.visible is True
                 ]
 
 -}
 contentList : List ( Html msg, Bool ) -> List (Html msg)
 contentList contents =
-    contents |> List.filter Tuple.second |> List.map Tuple.first
+    List.foldr
+        (\( thunk, enabled ) acc ->
+            if enabled then
+                thunk :: acc
+
+            else
+                acc
+        )
+        []
+        contents
 
 
-{-| A lazy version of contentList. This version takes a list of thunks paired with
-boolean values. The thunks are only evaluated for items that will be rendered
-(when their bool is True).
+{-| A lazy version of `contentList` for performance optimization.
 
-This is useful when the Html nodes are expensive to compute but the conditions are cheap.
+This function takes a list of thunks (functions that take unit `()` and return HTML)
+paired with boolean values. The thunks are evaluated only when their corresponding
+boolean is `True`, making this function more efficient when the HTML generation is
+expensive but condition evaluation is cheap.
 
-For example:
+Example:
 
     viewAnimals : List Animal -> Html msg
     viewAnimals animals =
@@ -65,15 +78,19 @@ lazyContentList contents =
         contents
 
 
-{-| This function works similar to lazyContentList but for Maybe values.
-It will only render items that have a Just value (of any type) associated with them.
+{-| Conditionally render HTML nodes based on `Maybe` values.
 
-Example usage:
+This function is similar to `lazyContentList` but works with `Maybe` values instead of
+booleans. HTML nodes will only be rendered for items that have a `Just` value.
+When the value is `Nothing`, the node is omitted from the output.
 
-    myView =
+Example:
+
+    view =
         maybeContentList
-            [ ( \text -> Html.text text, Just "this will render" )
-            , ( \text -> Html.text text, Nothing ) -- this will not render
+            [ ( \text -> Html.text text, Just "This will be rendered" )
+            , ( \text -> Html.text text, Nothing ) -- This will be omitted
+            , ( \user -> viewUser user, maybeUser ) -- Rendered only if maybeUser is Just
             ]
 
 -}
@@ -92,13 +109,16 @@ maybeContentList contents =
             []
 
 
-{-| wrapToSingleNode turns a list of Html nodes into a single node, using the following logic:
+{-| Convert a list of HTML nodes into a single node, following these rules:
 
-  - if the list is empty, return `nothing`
-  - if the list contains only one element, simply return that element
-  - if the list contains multiple elements, wrap them with a plain div with `display: contents`
+1.  If the list is empty, return `nothing` (an empty text node)
+2.  If the list contains exactly one element, return that element unchanged
+3.  If the list contains multiple elements, wrap them with a `div` using `display: contents`
 
-More on `display: contents` here: <https://developer.mozilla.org/en-US/docs/Web/CSS/display#contents>
+Using `display: contents` makes the wrapper transparent in the DOM layout,
+allowing children to participate in the parent's layout as if they were direct children.
+
+More about `display: contents`: <https://developer.mozilla.org/en-US/docs/Web/CSS/display#contents>
 
 -}
 wrapToSingleNode : List (Html msg) -> Html msg
@@ -114,8 +134,12 @@ wrapToSingleNode contents =
             wrapperNode nodes
 
 
-{-| nothing is a convenience function for the most idiomatic and common way to render nothing,
-namely an empty Html.text.
+{-| A concise way to render nothing.
+
+This is a convenience function that provides the idiomatic approach for rendering
+nothing in Elm: an empty text node. Use this instead of `Html.text ""` for improved
+readability and consistency.
+
 -}
 nothing : Html msg
 nothing =
