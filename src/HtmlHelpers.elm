@@ -9,7 +9,6 @@ module HtmlHelpers exposing (contentList, lazyContentList, wrapToSingleNode, not
 
 import Html exposing (Html)
 import Html.Attributes exposing (style)
-import Html.Lazy exposing (lazy, lazy2)
 
 
 {-| This function makes it easier to conditionally render Html.nodes.
@@ -54,14 +53,20 @@ For example:
 -}
 lazyContentList : List ( () -> Html msg, Bool ) -> List (Html msg)
 lazyContentList contents =
-    contents
-        |> List.filter Tuple.second
-        |> List.map (\( thunk, _ ) -> lazy thunk ())
+    List.foldr
+        (\( thunk, enabled ) acc ->
+            if enabled then
+                thunk () :: acc
+
+            else
+                acc
+        )
+        []
+        contents
 
 
 {-| This function works similar to lazyContentList but for Maybe values.
 It will only render items that have a Just value (of any type) associated with them.
-It uses lazy2 for memoization of both the function and its parameter.
 
 Example usage:
 
@@ -78,11 +83,11 @@ maybeContentList contents =
         |> List.foldr
             (\( thunk, maybeValue ) acc ->
                 case maybeValue of
+                    Just value ->
+                        thunk value :: acc
+
                     Nothing ->
                         acc
-
-                    Just value ->
-                        lazy2 (\fn val -> fn val) thunk value :: acc
             )
             []
 
