@@ -1,14 +1,15 @@
-module HtmlHelpers exposing (contentList, wrapToSingleNode, nothing)
+module HtmlHelpers exposing (contentList, lazyContentList, wrapToSingleNode, nothing, maybeContentList)
 
 {-| Convenient helper functions for working with
 [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 
-@docs contentList, wrapToSingleNode, nothing
+@docs contentList, lazyContentList, wrapToSingleNode, nothing, maybeContentList
 
 -}
 
 import Html exposing (Html)
 import Html.Attributes exposing (style)
+import Html.Lazy exposing (lazy, lazy2)
 
 
 {-| This function makes it easier to conditionally render Html.nodes.
@@ -31,6 +32,59 @@ For example, maybe we want to render a few animals:
 contentList : List ( Html msg, Bool ) -> List (Html msg)
 contentList contents =
     contents |> List.filter Tuple.second |> List.map Tuple.first
+
+
+{-| A lazy version of contentList. This version takes a list of thunks paired with
+boolean values. The thunks are only evaluated for items that will be rendered
+(when their bool is True).
+
+This is useful when the Html nodes are expensive to compute but the conditions are cheap.
+
+For example:
+
+    viewAnimals : List Animal -> Html msg
+    viewAnimals animals =
+        Html.section [ Attributes.id "animals" ] <|
+            lazyContentList
+                [ ( \_ -> expensiveRenderFunction animal1, animal1.visible )
+                , ( \_ -> expensiveRenderFunction animal2, animal2.visible )
+                , ( \_ -> expensiveRenderFunction animal3, animal3.visible )
+                ]
+
+-}
+lazyContentList : List ( () -> Html msg, Bool ) -> List (Html msg)
+lazyContentList contents =
+    contents
+        |> List.filter Tuple.second
+        |> List.map (\( thunk, _ ) -> lazy thunk ())
+
+
+{-| This function works similar to lazyContentList but for Maybe values.
+It will only render items that have a Just value (of any type) associated with them.
+It uses lazy2 for memoization of both the function and its parameter.
+
+Example usage:
+
+    myView =
+        maybeContentList
+            [ ( \text -> Html.text text, Just "this will render" )
+            , ( \text -> Html.text text, Nothing ) -- this will not render
+            ]
+
+-}
+maybeContentList : List ( a -> Html msg, Maybe a ) -> List (Html msg)
+maybeContentList contents =
+    contents
+        |> List.foldr
+            (\( thunk, maybeValue ) acc ->
+                case maybeValue of
+                    Nothing ->
+                        acc
+
+                    Just value ->
+                        lazy2 (\fn val -> fn val) thunk value :: acc
+            )
+            []
 
 
 {-| wrapToSingleNode turns a list of Html nodes into a single node, using the following logic:
