@@ -1,11 +1,11 @@
-module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing, maybeNode, resultNode, successNode, errNode)
 
 {-| Helper functions for conditionally rendering HTML elements.
 
 These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 in a more declarative way.
 
-@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing
+@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing, maybeNode, resultNode, successNode, errNode
 
 -}
 
@@ -107,6 +107,95 @@ maybeContentList contents =
                         acc
             )
             []
+
+
+{-| Render HTML based on a Maybe value.
+
+This function takes a view function and a Maybe value. If the value is `Just`, it renders
+the value using the provided view function. If the value is `Nothing`, it returns an empty
+text node.
+
+Example:
+
+    viewUser : Maybe User -> Html msg
+    viewUser maybeUser =
+        maybeNode viewUserDetails maybeUser
+
+-}
+maybeNode : (a -> Html msg) -> Maybe a -> Html msg
+maybeNode viewFn maybeValue =
+    case maybeValue of
+        Just value ->
+            viewFn value
+
+        Nothing ->
+            nothing
+
+
+{-| Render HTML based on a Result value.
+
+This function takes two view functions - one for the error case and one for the success case -
+and a Result value. It renders either the error or success view depending on the Result.
+
+Example:
+
+    viewUserData : Result String User -> Html msg
+    viewUserData result =
+        resultNode viewError viewUser result
+
+-}
+resultNode : (e -> Html msg) -> (a -> Html msg) -> Result e a -> Html msg
+resultNode errorView successView result =
+    case result of
+        Ok value ->
+            successView value
+
+        Err error ->
+            errorView error
+
+
+{-| Render HTML for the success case of a Result.
+
+This is a convenience function that only renders the success case of a Result,
+returning an empty text node for the error case.
+
+Example:
+
+    viewUserData : Result String User -> Html msg
+    viewUserData result =
+        successNode viewUser result
+
+-}
+successNode : (a -> Html msg) -> Result e a -> Html msg
+successNode viewFn result =
+    case result of
+        Ok value ->
+            viewFn value
+
+        Err _ ->
+            nothing
+
+
+{-| Render HTML for the error case of a Result.
+
+This is a convenience function that only renders the error case of a Result,
+returning an empty text node for the success case.
+
+Example:
+
+    viewError : Result String User -> Html msg
+    viewError result =
+        errNode viewErrorMessage result
+
+-}
+errNode : (e -> Html msg) -> Result e a -> Html msg
+errNode viewFn result =
+    case result of
+        Ok _ ->
+            nothing
+
+        Err error ->
+            viewFn error
 
 
 {-| Convert a list of HTML nodes into a single node, following these rules:
