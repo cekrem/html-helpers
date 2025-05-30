@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "review": "elm-review",
+    "review:fix": "elm-review --fix",
+    "review:suppress": "elm-review suppress"
+  },
+  "devDependencies": {
+    "elm-review": "^2.13.2"
+  }
+}
