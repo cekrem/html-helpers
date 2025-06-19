@@ -1,16 +1,16 @@
-module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing, maybeNode, resultNode, successNode, errNode)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, maybeNode, resultNode, successNode, errNode, nothing, hideOnBreakpoint)
 
 {-| Helper functions for conditionally rendering HTML elements.
 
 These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 in a more declarative way.
 
-@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, nothing, maybeNode, resultNode, successNode, errNode
+@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, maybeNode, resultNode, successNode, errNode, nothing, hideOnBreakpoint
 
 -}
 
 import Html exposing (Html)
-import Html.Attributes exposing (style)
+import Html.Attributes as Attributes
 
 
 {-| Conditionally render HTML nodes based on boolean flags.
@@ -235,6 +235,26 @@ nothing =
     Html.text ""
 
 
+{-| A clever (albeit hacky) helper to hide content (using max-width and max-height 0) below a given breakPoint.
+
+Simply pipe your content like this: `|> hideOnBreakpoint 600px` (or even `|> hideOnBreakpoint 100vh`, to hide when width > height)
+
+-}
+hideOnBreakpoint : String -> Html msg -> Html msg
+hideOnBreakpoint breakpoint content =
+    let
+        clampStyle : String
+        clampStyle =
+            "clamp(0px, calc((100vw - " ++ breakpoint ++ ") * 1000), 100vmax)"
+    in
+    Html.div
+        [ Attributes.style "max-width" clampStyle
+        , Attributes.style "max-height" clampStyle
+        , Attributes.style "overflow" "hidden"
+        ]
+        [ content ]
+
+
 wrapperNode : List (Html msg) -> Html msg
 wrapperNode =
-    Html.div [ style "display" "contents" ]
+    Html.div [ Attributes.style "display" "contents" ]
