@@ -237,7 +237,7 @@ nothing =
 
 {-| A clever (albeit hacky) helper to hide content (using max-width and max-height 0) below a given breakPoint.
 
-Simply pipe your content like this: `|> hideOnBreakpoint 600px` (or even `|> hideOnBreakpoint 100vh`, to hide when width < height)
+Simply pipe your content like this: `|> hideOnBreakpoint "600px"` (or even `|> hideOnBreakpoint "100vh"`, to hide when width < height)
 
 -}
 hideOnBreakpoint : String -> Html msg -> Html msg
