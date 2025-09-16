@@ -3,7 +3,7 @@
     "name": "cekrem/html-helpers",
     "summary": "A few convenient helper functions for working with Html",
     "license": "BSD-3-Clause",
-    "version": "1.4.0",
+    "version": "2.0.0",
     "exposed-modules": [
         "HtmlHelpers"
     ],

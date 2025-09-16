@@ -1,11 +1,11 @@
-module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybe, result, ifSuccess, ifError, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint)
 
 {-| Helper functions for conditionally rendering HTML elements.
 
 These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 in a more declarative way.
 
-@docs contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybe, result, ifSuccess, ifError, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint
+@docs contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint
 
 -}
 
@@ -185,88 +185,9 @@ maybeContentList contents =
             []
 
 
-{-| Render a single HTML node when a `Maybe` contains a value.
 
-If the value is `Just a`, applies the function to produce a node; otherwise returns `nothing`.
-
-Example:
-
-    view : Maybe User -> Html msg
-    view maybeUser =
-        maybe maybeUser viewUser
-
--}
-maybe : Maybe a -> (a -> Html msg) -> Html msg
-maybe maybeValue toHtml =
-    case maybeValue of
-        Just a ->
-            toHtml a
-
-        Nothing ->
-            nothing
-
-
-{-| Render based on a `Result` value.
-
-Applies the corresponding function for `Ok a` or `Err e` to produce a node.
-
-Example:
-
-    view : Result Http.Error User -> Html msg
-    view loadResult =
-        result loadResult viewUser viewLoadError
-
--}
-result : Result e a -> (a -> Html msg) -> (e -> Html msg) -> Html msg
-result res onOk onErr =
-    case res of
-        Ok a ->
-            onOk a
-
-        Err e ->
-            onErr e
-
-
-{-| Render only the success case of a `Result`.
-
-Returns `nothing` for the error case.
-
-Example:
-
-    view : Result Http.Error User -> Html msg
-    view res =
-        ifSuccess res viewUser
-
--}
-ifSuccess : Result e a -> (a -> Html msg) -> Html msg
-ifSuccess res onOk =
-    case res of
-        Ok a ->
-            onOk a
-
-        Err _ ->
-            nothing
-
-
-{-| Render only the error case of a `Result`.
-
-Returns `nothing` for the success case.
-
-Example:
-
-    view : Result Http.Error User -> Html msg
-    view res =
-        ifError res viewLoadError
-
--}
-ifError : Result e a -> (e -> Html msg) -> Html msg
-ifError res onErr =
-    case res of
-        Ok _ ->
-            nothing
-
-        Err e ->
-            onErr e
+-- (removed) maybe: prefer maybeNode for existing API
+-- (removed) result/ifSuccess/ifError: prefer resultNode/successNode/errNode for existing API
 
 
 {-| Convert a list of HTML nodes into a single node, following these rules:
