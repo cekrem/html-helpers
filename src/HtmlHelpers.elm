@@ -1,11 +1,11 @@
-module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, wrapToSingleNode, maybeNode, resultNode, successNode, errNode, nothing, hideOnBreakpoint)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybe, result, ifSuccess, ifError, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint)
 
 {-| Helper functions for conditionally rendering HTML elements.
 
 These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 in a more declarative way.
 
-@docs contentList, lazyContentList, maybeContentList, wrapToSingleNode, maybeNode, resultNode, successNode, errNode, nothing, hideOnBreakpoint
+@docs contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybe, result, ifSuccess, ifError, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint
 
 -}
 
@@ -43,6 +43,82 @@ contentList contents =
         )
         []
         contents
+
+
+{-| Conditionally render a single HTML node.
+
+If the condition is `True`, returns the provided node; otherwise returns `nothing`.
+
+Example:
+
+    view : Model -> Html msg
+    view model =
+        Html.section [ Attributes.id "notice" ]
+            [ when model.showNotice (Html.text "Important notice") ]
+
+-}
+when : Bool -> Html msg -> Html msg
+when cond view_ =
+    if cond then
+        view_
+
+    else
+        nothing
+
+
+{-| Render a single HTML node when the condition is `False`.
+
+This is the inverse of `when`.
+
+Example:
+
+    view : Model -> Html msg
+    view model =
+        Html.section [ Attributes.id "offline" ]
+            [ unless model.isOnline (Html.text "You are offline") ]
+
+-}
+unless : Bool -> Html msg -> Html msg
+unless cond view_ =
+    when (not cond) view_
+
+
+{-| Lazily render a single HTML node.
+
+Takes a thunk `() -> Html msg` and evaluates it only when the condition is `True`.
+
+Example:
+
+    view : Model -> Html msg
+    view model =
+        Html.section [ Attributes.id "notice" ]
+            [ lazyWhen model.showNotice (\_ -> expensiveNoticeView model) ]
+
+-}
+lazyWhen : Bool -> (() -> Html msg) -> Html msg
+lazyWhen cond thunk =
+    if cond then
+        thunk ()
+
+    else
+        nothing
+
+
+{-| Lazily render a single HTML node when the condition is `False`.
+
+This is the inverse of `lazyWhen`.
+
+Example:
+
+    view : Model -> Html msg
+    view model =
+        Html.section [ Attributes.id "offline" ]
+            [ lazyUnless model.isOnline (\_ -> expensiveOfflineBanner model) ]
+
+-}
+lazyUnless : Bool -> (() -> Html msg) -> Html msg
+lazyUnless cond thunk =
+    lazyWhen (not cond) thunk
 
 
 {-| A lazy version of `contentList` for performance optimization.
@@ -109,93 +185,88 @@ maybeContentList contents =
             []
 
 
-{-| Render HTML based on a Maybe value.
+{-| Render a single HTML node when a `Maybe` contains a value.
 
-This function takes a view function and a Maybe value. If the value is `Just`, it renders
-the value using the provided view function. If the value is `Nothing`, it returns an empty
-text node.
+If the value is `Just a`, applies the function to produce a node; otherwise returns `nothing`.
 
 Example:
 
-    viewUser : Maybe User -> Html msg
-    viewUser maybeUser =
-        maybeNode viewUserDetails maybeUser
+    view : Maybe User -> Html msg
+    view maybeUser =
+        maybe maybeUser viewUser
 
 -}
-maybeNode : (a -> Html msg) -> Maybe a -> Html msg
-maybeNode viewFn maybeValue =
+maybe : Maybe a -> (a -> Html msg) -> Html msg
+maybe maybeValue toHtml =
     case maybeValue of
-        Just value ->
-            viewFn value
+        Just a ->
+            toHtml a
 
         Nothing ->
             nothing
 
 
-{-| Render HTML based on a Result value.
+{-| Render based on a `Result` value.
 
-This function takes two view functions - one for the error case and one for the success case -
-and a Result value. It renders either the error or success view depending on the Result.
-
-Example:
-
-    viewUserData : Result String User -> Html msg
-    viewUserData result =
-        resultNode viewError viewUser result
-
--}
-resultNode : (e -> Html msg) -> (a -> Html msg) -> Result e a -> Html msg
-resultNode errorView successView result =
-    case result of
-        Ok value ->
-            successView value
-
-        Err error ->
-            errorView error
-
-
-{-| Render HTML for the success case of a Result.
-
-This is a convenience function that only renders the success case of a Result,
-returning an empty text node for the error case.
+Applies the corresponding function for `Ok a` or `Err e` to produce a node.
 
 Example:
 
-    viewUserData : Result String User -> Html msg
-    viewUserData result =
-        successNode viewUser result
+    view : Result Http.Error User -> Html msg
+    view loadResult =
+        result loadResult viewUser viewLoadError
 
 -}
-successNode : (a -> Html msg) -> Result e a -> Html msg
-successNode viewFn result =
-    case result of
-        Ok value ->
-            viewFn value
+result : Result e a -> (a -> Html msg) -> (e -> Html msg) -> Html msg
+result res onOk onErr =
+    case res of
+        Ok a ->
+            onOk a
+
+        Err e ->
+            onErr e
+
+
+{-| Render only the success case of a `Result`.
+
+Returns `nothing` for the error case.
+
+Example:
+
+    view : Result Http.Error User -> Html msg
+    view res =
+        ifSuccess res viewUser
+
+-}
+ifSuccess : Result e a -> (a -> Html msg) -> Html msg
+ifSuccess res onOk =
+    case res of
+        Ok a ->
+            onOk a
 
         Err _ ->
             nothing
 
 
-{-| Render HTML for the error case of a Result.
+{-| Render only the error case of a `Result`.
 
-This is a convenience function that only renders the error case of a Result,
-returning an empty text node for the success case.
+Returns `nothing` for the success case.
 
 Example:
 
-    viewError : Result String User -> Html msg
-    viewError result =
-        errNode viewErrorMessage result
+    view : Result Http.Error User -> Html msg
+    view res =
+        ifError res viewLoadError
 
 -}
-errNode : (e -> Html msg) -> Result e a -> Html msg
-errNode viewFn result =
-    case result of
+ifError : Result e a -> (e -> Html msg) -> Html msg
+ifError res onErr =
+    case res of
         Ok _ ->
             nothing
 
-        Err error ->
-            viewFn error
+        Err e ->
+            onErr e
 
 
 {-| Convert a list of HTML nodes into a single node, following these rules:
@@ -235,6 +306,158 @@ nothing =
     Html.text ""
 
 
+{-| A no-op attribute.
+
+This is effectively an empty `class` attribute. Useful as a placeholder when
+you need to return a single attribute but want it to be a no-op.
+
+Example:
+
+    Html.div [ noAttribute ] []
+
+-}
+noAttribute : Html.Attribute msg
+noAttribute =
+    Attributes.class ""
+
+
+{-| Conditionally include a single attribute.
+
+Returns the given attribute when the condition is `True`, otherwise returns `noAttribute`.
+
+Example:
+
+    Html.button [ attributeIf model.disabled (Attributes.disabled True) ]
+        [ Html.text "Submit" ]
+
+-}
+attributeIf : Bool -> Html.Attribute msg -> Html.Attribute msg
+attributeIf cond attr =
+    if cond then
+        attr
+
+    else
+        noAttribute
+
+
+{-| Conditionally include a list of attributes.
+
+Returns the given attributes when the condition is `True`, otherwise returns an empty list.
+
+Example:
+
+    Html.div
+        (attributesIf model.isPrimary
+            [ Attributes.class "btn"
+            , Attributes.class "btn-primary"
+            ]
+        )
+        [ Html.text "Click" ]
+
+-}
+attributesIf : Bool -> List (Html.Attribute msg) -> List (Html.Attribute msg)
+attributesIf cond attrs =
+    if cond then
+        attrs
+
+    else
+        []
+
+
+wrapperNode : List (Html msg) -> Html msg
+wrapperNode =
+    Html.div [ Attributes.style "display" "contents" ]
+
+
+{-| Render HTML based on a Maybe value.
+
+This function takes a view function and a Maybe value. If the value is `Just`, it renders
+the value using the provided view function. If the value is `Nothing`, it returns an empty
+text node.
+
+Example:
+
+    viewUser : Maybe User -> Html msg
+    viewUser maybeUser =
+        maybeNode viewUserDetails maybeUser
+
+-}
+maybeNode : (a -> Html msg) -> Maybe a -> Html msg
+maybeNode viewFn maybeValue =
+    case maybeValue of
+        Just value ->
+            viewFn value
+
+        Nothing ->
+            nothing
+
+
+{-| Render HTML based on a Result value.
+
+This function takes two view functions - one for the error case and one for the success case -
+and a Result value. It renders either the error or success view depending on the Result.
+
+Example:
+
+    viewUserData : Result String User -> Html msg
+    viewUserData result =
+        resultNode viewError viewUser result
+
+-}
+resultNode : (e -> Html msg) -> (a -> Html msg) -> Result e a -> Html msg
+resultNode errorView successView res =
+    case res of
+        Ok value ->
+            successView value
+
+        Err error ->
+            errorView error
+
+
+{-| Render HTML for the success case of a Result.
+
+This is a convenience function that only renders the success case of a Result,
+returning an empty text node for the error case.
+
+Example:
+
+    viewUserData : Result String User -> Html msg
+    viewUserData result =
+        successNode viewUser result
+
+-}
+successNode : (a -> Html msg) -> Result e a -> Html msg
+successNode viewFn res =
+    case res of
+        Ok value ->
+            viewFn value
+
+        Err _ ->
+            nothing
+
+
+{-| Render HTML for the error case of a Result.
+
+This is a convenience function that only renders the error case of a Result,
+returning an empty text node for the success case.
+
+Example:
+
+    viewError : Result String User -> Html msg
+    viewError result =
+        errNode viewErrorMessage result
+
+-}
+errNode : (e -> Html msg) -> Result e a -> Html msg
+errNode viewFn res =
+    case res of
+        Ok _ ->
+            nothing
+
+        Err error ->
+            viewFn error
+
+
 {-| A clever (albeit hacky) helper to hide content (using max-width and max-height 0) below a given breakPoint.
 
 Simply pipe your content like this: `|> hideOnBreakpoint "600px"` (or even `|> hideOnBreakpoint "100vh"`, to hide when width < height)
@@ -253,8 +476,3 @@ hideOnBreakpoint breakpoint content =
         , Attributes.style "overflow" "hidden"
         ]
         [ content ]
-
-
-wrapperNode : List (Html msg) -> Html msg
-wrapperNode =
-    Html.div [ Attributes.style "display" "contents" ]
