@@ -1,16 +1,18 @@
-module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint)
+module HtmlHelpers exposing (contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint, sendMsgWhen)
 
 {-| Helper functions for conditionally rendering HTML elements.
 
 These utilities make it easier to work with [`Html`](http://package.elm-lang.org/packages/elm-lang/html/latest/Html#Html)
 in a more declarative way.
 
-@docs contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint
+@docs contentList, lazyContentList, maybeContentList, when, unless, lazyWhen, lazyUnless, maybeNode, resultNode, successNode, errNode, attributeIf, attributesIf, noAttribute, wrapToSingleNode, nothing, hideOnBreakpoint, sendMsgWhen
 
 -}
 
 import Html exposing (Html)
 import Html.Attributes as Attributes
+import Html.Events as Events
+import Json.Decode as Decode
 
 
 {-| Conditionally render HTML nodes based on boolean flags.
@@ -397,3 +399,49 @@ hideOnBreakpoint breakpoint content =
         , Attributes.style "overflow" "hidden"
         ]
         [ content ]
+
+
+{-| Send a message when a condition is true during rendering.
+
+This function provides a way to trigger a message based on a condition evaluated during the view.
+It uses the `load` (or `error`, depending on browser) event on a hidden image element to dispatch
+the message when the condition is `True`.
+
+**When to use this:**
+
+Normally, you would handle state changes within your `update` function. However, in rare cases
+you may have data coming into your view that isn't controlled by the module's own Model/update.
+
+A concrete use case is in Elm Land, where you might want to react when something has changed
+in the `Shared` model:
+
+    view : Shared.Model -> Model -> View Msg
+    view shared model =
+        { title = "A page that shows a name from Shared.Model"
+        , body =
+            [ sendMsgWhen (shared.name /= model.prevName) OnNameUpdated
+            , Html.div [] [ Html.text shared.name ]
+            ]
+        }
+
+In your `update` function, you can then handle `OnNameUpdated` to store the new name in your
+local model for comparison on the next render.
+
+**Note:** This is an unconventional approach. Use it sparingly and only when conventional
+state management patterns don't fit your architecture.
+
+(See <https://elmlang.slack.com/archives/C0CJ3SBBM/p1755330558707299>)
+
+-}
+sendMsgWhen : Bool -> msg -> Html msg
+sendMsgWhen condition msg =
+    lazyWhen condition
+        (\() ->
+            Html.img
+                [ Attributes.style "display" "none !important"
+                , Attributes.src "data:,"
+                , Events.on "load" (Decode.succeed msg)
+                , Events.on "error" (Decode.succeed msg)
+                ]
+                []
+        )
